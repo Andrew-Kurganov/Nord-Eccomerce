@@ -14,7 +14,7 @@ async function connectDB() {
         const opts = {
             bufferCommands: false
         }
-        cached.promise =  mongoose.connect(`${process.env.MONGODB_URI}/nordcart`, opts).then(mongoose => {
+        cached.promise =  mongoose.connect(`${process.env.MONGODB_URI}/Nord-Eccomerce`, opts).then(mongoose => {
             return mongoose
         })
     }
