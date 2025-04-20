@@ -1,26 +1,29 @@
-import mongoose from "mongoose";
-
-let cached = global.mongoose
-
-if (!cached) {
-    cached = global.mongoose = { conn: null, promise: null }
-}
-
 async function connectDB() {
-    if (cached.conn) {
-        return cached.conn
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is missing");
     }
+  
+    if (cached.conn) return cached.conn;
+  
     if (!cached.promise) {
-        const opts = {
-            bufferCommands: false
-        }
-        cached.promise =  mongoose.connect(`${process.env.MONGODB_URI}/nordcart`, opts).then(mongoose => {
-            return mongoose
+      const opts = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+      };
+  
+      // Явное указание базы данных в URI
+      cached.promise = mongoose.connect(process.env.MONGODB_URI, opts)
+        .then(conn => {
+          console.log("Connected to MongoDB:", conn.connection.db.databaseName);
+          return conn;
         })
+        .catch(err => {
+          console.error("MongoDB connection error:", err);
+          throw err;
+        });
     }
-
-    cached.conn = await cached.promise
-    return cached.conn
-}
-
-export default connectDB
+  
+    cached.conn = await cached.promise;
+    return cached.conn;
+  }
