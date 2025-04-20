@@ -2,58 +2,63 @@ import { Inngest } from "inngest";
 import connectDB from "./db";
 import User from "@/models/user";
 
-// Create a client to send and receive events
-export const inngest = new Inngest({ id: "nordcart-next" });
+export const inngest = new Inngest({ 
+  id: "nordcart-next",
+  eventKey: process.env.INNGEST_EVENT_KEY 
+});
 
-//Inngest Function
-export const syncUserCreation = inngest.createFunction(
+// Объект со всеми функциями
+const inngestFunctions = {
+  syncUserCreation: inngest.createFunction(
     {
-        id:'sync-user-from-clerk'
+      id: 'sync-user-from-clerk',
+      retries: 3
     },
-    {event: 'clerk/user.created'},
-    async ({event}) => {
-        const { id, first_name, last_name, email_addresses, image_url } = event.data
-        const userData = {
-            _id:id,
-            email: email_addresses[0].email_address,
-            name: first_name + '' + last_name,
-            imageUrl:image_url
-        }
-        await connectDB()
-        await User.create(userData)
+    { event: 'clerk/user.created' },
+    async ({ event }) => {
+      const { id, first_name, last_name, email_addresses, image_url } = event.data;
+      await connectDB();
+      
+      await User.create({
+        _id: id,
+        email: email_addresses[0]?.email_address,
+        name: `${first_name} ${last_name}`.trim(),
+        imageUrl: image_url
+      });
     }
-)
+  ),
 
-// Inngest Function
-export const syncUserUpdation = inngest.createFunction(
+  syncUserUpdation: inngest.createFunction(
     {
-        id: 'update-user-from-clerk'
+      id: 'update-user-from-clerk',
+      retries: 3
     },
     { event: 'clerk/user.updated' },
-    async ({event}) => {
-        const { id, first_name, last_name, email_addresses, image_url } = event.data
-        const userData = {
-            _id:id,
-            email: email_addresses[0].email_address,
-            name: first_name + '' + last_name,
-            imageUrl:image_url
-        }
-        await connectDB()
-        await User.findByIdAndUpdate(id,userData)
-    }
-)
+    async ({ event }) => {
+      const { id, first_name, last_name, email_addresses, image_url } = event.data;
+      await connectDB();
 
-//Inngest
-export const syncUserDeletion = inngest.createFunction(
+      await User.findByIdAndUpdate(id, {
+        email: email_addresses[0]?.email_address,
+        name: `${first_name} ${last_name}`.trim(),
+        imageUrl: image_url
+      }, { new: true });
+    }
+  ),
+
+  syncUserDeletion: inngest.createFunction(
     {
-        id: 'delete-user-with-clerk'
+      id: 'delete-user-with-clerk',
+      retries: 3
     },
-    {event: 'clerk/user.deleted'},
-    async ({event}) => {
-        
-        const {id} = event.data
-
-        await connectDB()
-        await User.findByIdAndDelete(id)
+    { event: 'clerk/user.deleted' },
+    async ({ event }) => {
+      const { id } = event.data;
+      await connectDB();
+      await User.findByIdAndDelete(id);
     }
-)
+  )
+};
+
+// Экспорт массива функций
+export const functions = Object.values(inngestFunctions);
