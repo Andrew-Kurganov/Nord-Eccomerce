@@ -1,26 +1,38 @@
 import mongoose from "mongoose";
 
-let cached = global.mongoose
+let cached = global.mongoose;
 
 if (!cached) {
-    cached = global.mongoose = { conn: null, promise: null }
+    cached = global.mongoose = { conn: null, promise: null };
 }
 
 async function connectDB() {
-    if (cached.conn) {
-        return cached.conn
+    if (!process.env.MONGODB_URI) {
+        throw new Error('MONGODB_URI is undefined!');
     }
+
+    if (cached.conn) {
+        return cached.conn;
+    }
+
     if (!cached.promise) {
         const opts = {
-            bufferCommands: false
-        }
-        cached.promise = (await mongoose.connect('${process.env.MONGODB_URI}/nordcart', opts)).isObjectIdOrHexString(mongoose => {
-            return mongoose
-        })
+            bufferCommands: false,
+        };
+        cached.promise = mongoose.connect(
+            `${process.env.MONGODB_URI}/nordcart`, 
+            opts
+        );
     }
 
-    cached.conn = await cached.promise
-    return cached.conn
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
+    }
+
+    return cached.conn;
 }
 
-export default connectDB
+export default connectDB;
