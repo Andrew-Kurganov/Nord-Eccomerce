@@ -1,24 +1,26 @@
-// config/inngest.js
 import { Inngest } from "inngest";
 import connectDB from "./db";
 import User from "@/models/user";
 
-// 1. Создаем единый клиент
-const inngestClient = new Inngest({
+// Инициализация клиента Inngest
+export const inngest = new Inngest({
   id: "nordcart-next",
-  name: "Nordcart Next.js App"
+  name: "Nordcart Next.js Application",
+  eventKey: process.env.INNGEST_EVENT_KEY
 });
 
-// 2. Объявляем все функции в одном месте
+// Основные функции приложения
 const appFunctions = {
-  syncUserCreation: inngestClient.createFunction(
+  syncUserCreation: inngest.createFunction(
     {
       id: "sync-user-from-clerk",
-      name: "Sync Clerk User Creation"
+      name: "Sync User Creation",
+      retries: 3
     },
     { event: "clerk/user.created" },
     async ({ event }) => {
       const { id, first_name, last_name, email_addresses, image_url } = event.data;
+      
       await connectDB();
       await User.create({
         _id: id,
@@ -28,14 +30,17 @@ const appFunctions = {
       });
     }
   ),
-  syncUserUpdation: inngestClient.createFunction(
+  
+  syncUserUpdation: inngest.createFunction(
     {
       id: "update-user-from-clerk",
-      name: "Sync Clerk User Updates"
+      name: "Sync User Updates",
+      retries: 3
     },
     { event: "clerk/user.updated" },
     async ({ event }) => {
       const { id, first_name, last_name, email_addresses, image_url } = event.data;
+      
       await connectDB();
       await User.findByIdAndUpdate(
         id,
@@ -44,24 +49,26 @@ const appFunctions = {
           name: `${first_name} ${last_name}`.trim(),
           imageUrl: image_url
         },
-        { new: true }
+        { new: true, runValidators: true }
       );
     }
   ),
-  syncUserDeletion: inngestClient.createFunction(
+
+  syncUserDeletion: inngest.createFunction(
     {
       id: "delete-user-with-clerk",
-      name: "Delete Clerk User"
+      name: "Delete User",
+      retries: 3
     },
     { event: "clerk/user.deleted" },
     async ({ event }) => {
       const { id } = event.data;
+      
       await connectDB();
       await User.findByIdAndDelete(id);
     }
   )
 };
 
-// 3. Экспортируем как именованный массив
-export const inngest = inngestClient;
-export const functions = Object.values(appFunctions);
+// Экспорт функций как массива
+export const inngestFunctions = Object.values(appFunctions);
