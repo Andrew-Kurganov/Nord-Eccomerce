@@ -15,8 +15,13 @@ async function connectDB() {
             bufferCommands: false
         }
         cached.promise =  mongoose.connect(`${process.env.MONGODB_URI}/Nord-Eccomerce`, opts).then(mongoose => {
+            console.log("✅ MongoDB connected");
             return mongoose
         })
+        .catch(error => {
+            console.error("❌ MongoDB connection error:", error);
+            throw error;
+        });
     }
 
     cached.conn = await cached.promise
